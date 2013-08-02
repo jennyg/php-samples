@@ -1,0 +1,114 @@
+<h3>Report of Incident</h3>
+
+<?php  
+//Show report emailed where 911 was called. 1-13-2011 - Lou
+//added patron info, weapon and non-emergency 7/12/13 Jenny
+		$sql = "SELECT
+					rid,
+					RGuardAssist,
+					RVerbalWarning,
+					RWrittenWarning,
+					R911,
+					R911Med,
+					ROfficer,
+					RCaseNumber,
+					RArrested,
+					RFirstName,
+					RLastName,
+					RWeapon,
+					RNonEmerg,
+					RSuspension,
+					CONVERT(VARCHAR(10),RSusStart,110) AS RSusStart,
+					CONVERT(VARCHAR(10),RSusEnd,110) AS RSusEnd,
+					RResponseTime,
+					RDescription,
+					RActionNotes,
+					CONVERT(VARCHAR(10),incident_report.RDate,120) AS RDate,
+					Month(incident_report.RDate )AS Month,
+					Year(incident_report.RDate )AS Year,
+					location.LocationShortName,
+					incident_report.RLocationID
+					  
+		FROM incident_report
+		LEFT JOIN location ON incident_report.RLocationID = location.LocationID
+		WHERE rid = $rid
+		ORDER BY Year, Month, location.LocationShortName";
+			
+		if ( !($result = $db->sql_query($sql)) )
+		{
+			message_die(GENERAL_ERROR, 'Error selecting reports from DB.  Please try again or contact the webmaster with this error.', '', __LINE__, __FILE__, $sql);			
+			var_dump($sql);
+		}
+		
+		$db->storeRecordset();
+		
+		$irResults = $db->results;
+		$db->query("SELECT iir.rid,'<dt>'+ii.IName+'</dt><dd>'+'</dd>' AS infractions, ii.IDescription AS descrip
+		FROM incident_infraction ii INNER JOIN (incident_infraction_report iir INNER JOIN incident_report ir ON iir.rid=ir.rid) ON iir.iid = ii.iid WHERE iir.rid = $rid");
+		$db->storeRecordset();
+		$infractionsList = $db->results;
+		foreach ($irResults as $row) {	
+			echo "<div class=\"report\">";			
+			echo "<h2>Date of Incident: " . $row['RDate'] . "</h2>";
+			echo "<h3>Location: " . $row['LocationShortName'] . "</h3>";		
+			echo "<h3>Response Time: ";
+			echo !strcmp($row['RResponseTime'], "") ? "Not Reported" :  $row['RResponseTime'] . " minutes";
+			echo "</h3>";
+			
+			echo "<h3>Infraction(s)</h3>";
+			echo "<dl>";
+			foreach($infractionsList as $row2) {
+				echo "<b>".$row2['infractions']."</b>".$row2['descrip']; }
+			echo "</dl>";
+			if($row['RSuspension'] == 1){
+				echo "<h3>Suspension</h3><b>Start:</b> ".$row['RSusStart']." <b>End:</b> ".$row['RSusEnd'];}
+
+			echo "<h3>Description of Incident</h3>";
+			echo "<p>" . $row['RDescription'] . "</p>";
+			echo "<h3>Staff Member Name</h3>";
+			echo "<p>" . $row['RFirstName'] . " ". $row['RLastName'] . "</p>";
+			echo "<h3>Action Taken</h3>";
+			if($row['RGuardAssist'] == 1){
+				echo "Guard Assist<br/>"; }
+			if($row['RVerbalWarning'] == 1){
+				echo "Verbal Warning<br/>"; }
+			if($row['RWrittenWarning'] == 1){
+				echo "Written Warning<br/>"; }
+			if($row['R911'] == 1){
+				echo "Called 911 for Police<br/>"; }
+			if($row['R911Med'] == 1){
+				echo "Called 911 for Medical<br/>"; }
+			if($row['RArrested'] == 1){
+				echo "Arrested"; }
+			if($row['RNonEmerg'] == 1){
+				echo "Non Emergency Called"; }
+			if($row['RActionNotes']){
+				echo "<h3>Notes on Action</h3>";
+				echo "<p>". $row['RActionNotes'] . "</p>";}
+			if($row['RWeapon']){
+				echo "<h3>Weapon(s) Involved</h3>";
+				echo "<p>". $row['RWeapon'] . "</p>";}
+			if($row['ROfficer'] OR $row['RCaseNumber']){
+				echo "<h3>Police Information</h3><b>Officer Name:</b> ".$row['ROfficer']." <b>Case Number:</b> ".$row['RCaseNumber'];}
+			
+		}
+		//adding these to add the patron information
+		$patrons = getPatronNames($row['rid']);
+			
+			echo "<td>";
+			foreach ($patrons as $pid=>$name) {
+				echo "<h3>Patron Name</h3>";
+				echo '		';
+				echo "<p><a href=\"./?action=viewPatron&pid=$pid&back=viewReports\" title=\"";
+				if ($name) echo "View Patron Information for $name\">$name";
+				else echo 'View Patron Info">[ View Patron Info ]';
+				echo "</a><br/>";
+				echo "<span style=\"font-size:0.8em;\">[ <a href=\"./?action=addPReport&back=viewReports&pid=$pid\">";
+				echo "Add New Incident for Patron</a> ]</p>\n";
+				echo "</div>";
+			}			
+			
+			
+			
+
+?>
